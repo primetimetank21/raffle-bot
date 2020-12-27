@@ -13,10 +13,6 @@ def getKeys(file):
             credentials["user"] = line.strip()
         elif i == 1:
             credentials["pass"] = line.strip()
-        # elif i == 2:
-        #     credentials["email"] = line.strip()
-        # elif i == 3:
-        #     credentials["emailPass"] = line.strip()
 
     f.close()
 
