@@ -1,3 +1,4 @@
-login.txt
+*.txt
+
 .venv/*
 chromedriver

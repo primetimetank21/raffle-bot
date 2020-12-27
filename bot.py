@@ -1,7 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
-import os
+# import os
 from time import sleep
 
 def getKeys(file):
@@ -71,27 +72,6 @@ def clickThrough(data, url):
 
         loginBtn.click()
 
-        # sleep(3)
-
-        #login to email and get code (NOT POSSIBLE)
-
-        #put code into field
-        codeBox    = driver.find_element_by_id("authcode")
-        submitBtn  = driver.find_element_by_xpath("//*[@id=\"auth_buttonset_entercode\"]/div[1]/div[1]")
-        secretCode = str(input("Enter Code:    ")) #getEmail(data))
-
-        codeBox.send_keys(secretCode.upper())
-
-        sleep(3)
-
-        submitBtn.click()
-
-        sleep(5)
-
-        #go to main page
-        proceedBox = driver.find_element_by_xpath("//*[@id=\"success_continue_btn\"]/div[1]")
-        proceedBox.click()
-
         sleep(5)
 
         raffleBtn = driver.find_element_by_xpath("//*[@id=\"navbar-main\"]/ul[1]/li[2]/a")
@@ -113,7 +93,7 @@ def clickThrough(data, url):
         timeLeftBtn = driver.find_element_by_xpath("//*[@id=\"pid-raffles\"]/div[4]/div[3]/nav/ul[2]/li/ul/li[2]/a")
         timeLeftBtn.click()
 
-        sleep(5)
+        sleep(8)
 
         #go through raffles...
         #parse through raffle ids
@@ -127,12 +107,12 @@ def clickThrough(data, url):
         soup = BeautifulSoup(html, features="html.parser")
 
 
-        stats = soup.find_all("div", {"class": "raffle-list-stat"})
-        tmp = open("./tmp.txt", "w")
-        for stat in stats:
-            tmp.write(str(stat) + "\n")
-        tmp.close()
-        print("Stored in file...")
+        # stats = soup.find_all("div", {"class": "raffle-list-stat"})
+        # tmp = open("./tmp.txt", "w")
+        # for stat in stats:
+        #     tmp.write(str(stat) + "\n")
+        # tmp.close()
+        # print("Stored in file...")
 
         stats        = soup.find("div", class_="raffle-list-stat").h1
         stats        = str(stats.text).split("/")
@@ -159,6 +139,12 @@ def clickThrough(data, url):
 
             # Wait to load page
             sleep(0.5)
+            driver.execute_script("window.scrollTo(0, 0);")
+            sleep(0.5)
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
+            sleep(0.5)
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            sleep(0.5)
 
             # Calculate new scroll height and compare with last scroll height
             new_height = driver.execute_script("return document.body.scrollHeight")
@@ -178,9 +164,9 @@ def clickThrough(data, url):
 
         print(f"\nFINAL...\nEntered: {entered_Num}\tTotal: {totalRaffles_Num}")
 
-        os.remove("./tmp.txt")
+        # os.remove("./tmp.txt")
 
-        print("Removed \"tmp.txt\"...")
+        # print("Removed \"tmp.txt\"...")
 
         allIDs = []
         for raf in soup.find_all("div", {"class": "raffle-name"}):
@@ -196,30 +182,71 @@ def clickThrough(data, url):
             enteredIDs.append(link[-1])
         print(f"\n{len(enteredIDs)}, {enteredIDs}")
 
-        #important classes:
-        #    panel-raffle raffle-entered
-        #    panel-raffle
-        #the difference b/w these two will give us which ones we need to enter
-        #store both in arrays (by raffle ID) and remove the ones found in both
-        #useful for parsing with beautiful soup: https://stackoverflow.com/questions/13960326/how-can-i-parse-a-website-using-selenium-and-beautifulsoup-in-python
+        sleep(5)
 
+        for id in enteredIDs:
+            if id in allIDs:
+                allIDs.remove(id)
+            # driver.get(f"https://scrap.tf/raffles/{id}")
+            # sleep(7.5)
+            # print(f"Visited {id}")
 
-        sleep(20)
+        for id in allIDs:
+            try:
+                driver.get(f"https://scrap.tf/raffles/{id}")
+                sleep(5)
+                driver.execute_script("window.scrollTo(0, 0);")
+                sleep(1)
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
+                sleep(1)
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                sleep(1)
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
+                sleep(2)
 
+                action = ActionChains(driver)
 
+                # row = driver.find_element_by_class_name("col-xs-7 enter-raffle-btns")
+                row = driver.find_element_by_class_name("enter-raffle-btns")
 
-        #NEXT -- eliminate the enteredIDs from the allIDs; figure out how to click on raffle link, then the button, then go back to main screen
+                # width = driver.execute_script("return document.body.scrollWidth")
+                # action.move_to_element_with_offset(row, int(width) * 0.65, 32).click().perform()
+                action.move_to_element(row).click().perform()
+                
+                enterBtn = driver.find_element_by_id("raffle-enter")
+                text = enterBtn.get_attribute("data-loading-text")
+                count = 0
+                while text != "Leaving..." and count > 4:
+                    try:
+                        enterBtn = driver.find_element_by_id("raffle-enter")
+                        text = enterBtn.get_attribute("data-loading-text")
+                        driver.execute_script("window.scrollTo(0, 0);")
+                        sleep(2)
+                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2.5);")
+                        sleep(2)
+                        row = driver.find_element_by_class_name("enter-raffle-btns")
+                        sleep(0.5)
+                        action.move_to_element(row).click().perform()
 
-        # seen = {}
+                        print(f"Clicked at {id} ({count+1})...")
+                        sleep(3)
+                    except Exception as e:
+                        print(f"Sumn happened: {e}")
+                        text = enterBtn.get_attribute("data-loading-text")
+                        print(f"Failed at {id} ({count+1})...")
+                        sleep(3)
+                    
+                    count+=1
+                
+                print(f"Count was {count}...")
+                sleep(7.5)
 
-        #click through every raffle
-
-        # btn = "//*[@id=\"pid-viewraffle\"]/div[4]/div/div[3]/div[5]/div[2]/button[2]"
-        # btn = "//*[@id=\"pid-viewraffle\"]/div[4]/div/div[3]/div[7]/div[2]/button[2]"
-        # btn = "//*[@id=\"pid-viewraffle\"]/div[4]/div/div[3]/div[5]/div[2]/button[2]"
-
+            except Exception as e:
+                print(f"Failed at {id}: {e}")
+                continue
 
         driver.quit()
+        print("Finished!")
 
     except Exception as e:
         print(e)
