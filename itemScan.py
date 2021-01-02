@@ -3,6 +3,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from time import sleep
 
+
 def getKeys(file):
     f = open(file, "r")
     credentials = {}
@@ -12,28 +13,27 @@ def getKeys(file):
             credentials["user"] = line.strip()
         elif i == 1:
             credentials["pass"] = line.strip()
-        # elif i == 2:
-        #     credentials["email"] = line.strip()
-        # elif i == 3:
-        #     credentials["emailPass"] = line.strip()
 
     f.close()
 
     return credentials
 
 
-def clickThrough(data, url):
+def search(data, creds, url):
     try:
+        print("Terms searching for:")
+        for term in data:
+            print(term, end=" ")
+        print()
         driver = webdriver.Firefox()
-        # driver = webdriver.Chrome("./chromedriver")
         driver.get(url)
 
         username = driver.find_element_by_id("steamAccountName")
         password = driver.find_element_by_id("steamPassword")
         loginBtn = driver.find_element_by_id("imageLogin")
 
-        username.send_keys(data["user"])
-        password.send_keys(data["pass"])
+        username.send_keys(creds["user"])
+        password.send_keys(creds["pass"])
 
         loginBtn.click()
 
@@ -55,7 +55,7 @@ def clickThrough(data, url):
         proceedBox = driver.find_element_by_xpath("//*[@id=\"success_continue_btn\"]/div[1]")
         proceedBox.click()
 
-        sleep(20)
+        sleep(15)
 
 
         raffleBtn = driver.find_element_by_xpath("//*[@id=\"navbar-main\"]/ul[1]/li[2]/a")
@@ -66,18 +66,7 @@ def clickThrough(data, url):
         pubRaffle = driver.find_element_by_xpath("//*[@id=\"navbar-main\"]/ul[1]/li[2]/ul/li[3]/a")
         pubRaffle.click()
 
-        #go to older raffles (soon to end)
-        sleep(3)
-
-        # soonEndTab = driver.find_element_by_xpath("//*[@id=\"pid-raffles\"]/div[4]/div[3]/nav/ul[2]/li/a")
-        # soonEndTab.click()
-
-        # sleep(1)
-
-        # timeLeftBtn = driver.find_element_by_xpath("//*[@id=\"pid-raffles\"]/div[4]/div[3]/nav/ul[2]/li/ul/li[2]/a")
-        # timeLeftBtn.click()
-
-        # sleep(5)
+        sleep(5)
 
         #get total raffles not currently entered in
         rafflesIn, rafflesTotal = 0,0
@@ -149,71 +138,61 @@ def clickThrough(data, url):
             if id in allIDs:
                 allIDs.remove(id)
 
-        successes,fails = 0,0
+        interestingRaffles = {}
+        for searchTerm in data:
+            interestingRaffles[searchTerm] = []
+
+        #if the raffle has at least one of the terms searching for, add it to list of urls we want to enter 
         for id in allIDs:
+            # print(f"https://scrap.tf/raffles/{id}")
             try:
-                driver.get(f"https://scrap.tf/raffles/{id}")
-                sleep(5)
-                driver.execute_script("window.scrollTo(0, 0);")
-                sleep(1)
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
-                sleep(1)
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                sleep(1)
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2);")
-                sleep(2)
-
-                action = ActionChains(driver)
-
-                row = driver.find_element_by_class_name("enter-raffle-btns")
-                action.move_to_element(row).click().perform()
-                enterBtn = driver.find_element_by_id("raffle-enter")
-                text = enterBtn.get_attribute("data-loading-text")
-                count = 0
-                while text != "Leaving..." and count > 4:
-                    try:
-                        enterBtn = driver.find_element_by_id("raffle-enter")
-                        text = enterBtn.get_attribute("data-loading-text")
-                        driver.execute_script("window.scrollTo(0, 0);")
-                        sleep(2)
-                        driver.execute_script("window.scrollTo(0, document.body.scrollHeight/2.5);")
-                        sleep(2)
-                        row = driver.find_element_by_class_name("enter-raffle-btns")
-                        sleep(0.5)
-                        action.move_to_element(row).click().perform()
-
-                        print(f"Clicked at {id} ({count+1})...")
-                        sleep(3)
-                    except Exception as e:
-                        print(f"Sumn happened: {e}")
-                        text = enterBtn.get_attribute("data-loading-text")
-                        print(f"Failed at {id} ({count+1})...")
-                        sleep(3)
-                    
-                    count+=1
+                cur     = soup.find("div", {"onclick": f"ScrapTF.Raffles.RedirectToRaffle('{id}')"})
+                items   = cur.find("div", {"class": "items-container"})
+                itemStr = str(items)
                 
-                print(f"Count was {count}...")
-                if count <=4 :
-                    successes+=1
-                else:
-                    fails+=1
-                sleep(7.5)
+                for searchTerm in data:
+                    if searchTerm in itemStr:
+                        print(f"{searchTerm} found!")
+                        interestingRaffles[searchTerm].append(f"https://scrap.tf/raffles/{id}")
+                        break
+                # print(f"Success @ {id}")
+                # print(str(items))
+                print()
 
-            except Exception as e:
-                print(f"Failed at {id}: {e}")
-                fails+=1
-                continue
+            except:
+                print(f"Failed @ {id}...")
 
         driver.quit()
-        print("Finished!")
-        print(f"Successes: {successes}\nFails: {fails}")
 
+        print("Raffles to join:")
+        f = open("./raffles_to_join.txt", "w")
+        f.write("Raffles:\n")
+        for key in interestingRaffles.keys():
+            print(f"\t{key}")
+            f.write(f"\t{key}\n")
+            for raffle in interestingRaffles[key]:
+                print(f"\t    {raffle}")
+                f.write(f"\t    {raffle}\n")
+            print()
+        f.close()
     except Exception as e:
         print(e)
         driver.quit()
 
 
+def main():
+    credentials = getKeys("./login.txt")
+    terms = ["Unusual", "Mann Co. Supply Crate Key", "Strange", "Refined Metal"]
 
-keys = getKeys("login.txt")
-clickThrough(keys, "https://steamcommunity.com/openid/login?openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.mode=checkid_setup&openid.return_to=https%3A%2F%2Fscrap.tf%2Flogin&openid.realm=https%3A%2F%2Fscrap.tf&openid.ns.sreg=http%3A%2F%2Fopenid.net%2Fextensions%2Fsreg%2F1.1&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select")
-# getEmail(keys)
+    # #if want to enter additional terms manually to search for
+    # term = ""
+    # while term != "done":
+    #     term = str(input("Enter term to search:\t"))
+    #     term = term.strip()
+    #     if term != "done" and term != "":
+    #         terms.append(term)
+    search(terms, credentials, "https://steamcommunity.com/openid/login?openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.mode=checkid_setup&openid.return_to=https%3A%2F%2Fscrap.tf%2Flogin&openid.realm=https%3A%2F%2Fscrap.tf&openid.ns.sreg=http%3A%2F%2Fopenid.net%2Fextensions%2Fsreg%2F1.1&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,7 @@
 *.txt
 
+venv/*
 .venv/*
 chromedriver
+geckodriver*
+settings.json
