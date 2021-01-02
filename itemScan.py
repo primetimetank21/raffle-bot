@@ -1,5 +1,4 @@
 from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 from time import sleep
 
@@ -23,9 +22,15 @@ def search(data, creds, url):
     try:
         print("Terms searching for:")
         for term in data:
-            print(term, end=" ")
-        print()
-        driver = webdriver.Firefox()
+            if term != data[-1]:
+                print(f"{term},", end=" ")
+            else:
+                print(f"{term}\n")
+
+        try:
+            driver = webdriver.Firefox()
+        except:
+            driver = webdriver.Chrome("./chromedriver")
         driver.get(url)
 
         username = driver.find_element_by_id("steamAccountName")
@@ -48,15 +53,16 @@ def search(data, creds, url):
         sleep(3)
 
         submitBtn.click()
+        print("Logged in...")
 
         sleep(5)
 
         #go to main page
+        print("Navigating to raffle page...")
         proceedBox = driver.find_element_by_xpath("//*[@id=\"success_continue_btn\"]/div[1]")
         proceedBox.click()
 
         sleep(15)
-
 
         raffleBtn = driver.find_element_by_xpath("//*[@id=\"navbar-main\"]/ul[1]/li[2]/a")
         raffleBtn.click()
@@ -66,21 +72,8 @@ def search(data, creds, url):
         pubRaffle = driver.find_element_by_xpath("//*[@id=\"navbar-main\"]/ul[1]/li[2]/ul/li[3]/a")
         pubRaffle.click()
 
+        print("Getting raffle info...")
         sleep(5)
-
-        #get total raffles not currently entered in
-        rafflesIn, rafflesTotal = 0,0
-        html = driver.page_source
-        soup = BeautifulSoup(html, features="html.parser")
-
-        stats        = soup.find("div", class_="raffle-list-stat").h1
-        stats        = str(stats.text).split("/")
-        rafflesIn    = int(stats[0])
-        rafflesTotal = int(stats[1])
-        print(f"\nTOTAL...\nEntered: {rafflesIn}\tTotal: {rafflesTotal}\n")
-
-        entered_Num      = len(soup.find_all("panel-raffle raffle-entered"))
-        totalRaffles_Num = len(soup.find_all("panel-raffle"))
 
         # Get scroll height
         last_height = driver.execute_script("return document.body.scrollHeight")
@@ -106,33 +99,20 @@ def search(data, creds, url):
                 break
             last_height = new_height
 
-        sleep(10)
-
         html = driver.page_source
         soup = BeautifulSoup(html, features="html.parser")
-
-        entered          = soup.find_all("div", {"class": "panel-raffle raffle-entered"})
-        totalRaffles     = soup.find_all("div", {"class": "panel-raffle"})
-        entered_Num      = len(entered)
-        totalRaffles_Num = len(totalRaffles)
-
-        print(f"\nFINAL...\nEntered: {entered_Num}\tTotal: {totalRaffles_Num}")
 
         allIDs = []
         for raf in soup.find_all("div", {"class": "raffle-name"}):
             link = raf.a["href"]
             link = link.split("/")
             allIDs.append(link[-1])
-        print(f"{len(allIDs)}, {allIDs}")
 
         enteredIDs = []
         for raf in soup.find_all("div", {"class": "raffle-entered"}):
             link = raf.a["href"]
             link = link.split("/")
             enteredIDs.append(link[-1])
-        print(f"\n{len(enteredIDs)}, {enteredIDs}")
-
-        sleep(5)
 
         for id in enteredIDs:
             if id in allIDs:
@@ -142,27 +122,30 @@ def search(data, creds, url):
         for searchTerm in data:
             interestingRaffles[searchTerm] = []
 
-        #if the raffle has at least one of the terms searching for, add it to list of urls we want to enter 
+        #if the raffle has at least one of the terms searching for, add it to list of urls we want to enter
+        print("Searching for interesting raffles...")
+        matches = 0
         for id in allIDs:
-            # print(f"https://scrap.tf/raffles/{id}")
             try:
                 cur     = soup.find("div", {"onclick": f"ScrapTF.Raffles.RedirectToRaffle('{id}')"})
                 items   = cur.find("div", {"class": "items-container"})
                 itemStr = str(items)
-                
+
                 for searchTerm in data:
                     if searchTerm in itemStr:
-                        print(f"{searchTerm} found!")
+                        # print(f"{searchTerm} found!")
                         interestingRaffles[searchTerm].append(f"https://scrap.tf/raffles/{id}")
+                        matches += 1
                         break
                 # print(f"Success @ {id}")
                 # print(str(items))
-                print()
+                # print()
 
             except:
                 print(f"Failed @ {id}...")
 
         driver.quit()
+        print(f"Completed search with {matches} matches...\n")
 
         print("Raffles to join:")
         f = open("./raffles_to_join.txt", "w")
@@ -174,6 +157,7 @@ def search(data, creds, url):
                 print(f"\t    {raffle}")
                 f.write(f"\t    {raffle}\n")
             print()
+            f.write("\n")
         f.close()
     except Exception as e:
         print(e)
